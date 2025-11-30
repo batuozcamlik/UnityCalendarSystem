@@ -1,0 +1,58 @@
+{
+    "dayParts": [
+        "Morning",
+        "Noon",
+        "Afternoon",
+        "Evening"
+    ],
+    "months": [
+        {
+            "monthName": "January",
+            "daysInMonth": 31
+        },
+        {
+            "monthName": "February",
+            "daysInMonth": 28
+        },
+        {
+            "monthName": "March",
+            "daysInMonth": 31
+        },
+        {
+            "monthName": "April",
+            "daysInMonth": 30
+        },
+        {
+            "monthName": "May",
+            "daysInMonth": 31
+        },
+        {
+            "monthName": "June",
+            "daysInMonth": 30
+        },
+        {
+            "monthName": "July",
+            "daysInMonth": 31
+        },
+        {
+            "monthName": "August",
+            "daysInMonth": 31
+        },
+        {
+            "monthName": "September",
+            "daysInMonth": 30
+        },
+        {
+            "monthName": "October",
+            "daysInMonth": 31
+        },
+        {
+            "monthName": "November",
+            "daysInMonth": 30
+        },
+        {
+            "monthName": "December",
+            "daysInMonth": 31
+        }
+    ]
+}
