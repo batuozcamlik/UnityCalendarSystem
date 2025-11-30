@@ -54,5 +54,9 @@
             "monthName": "December",
             "daysInMonth": 31
         }
-    ]
+    ],
+    "currentYear": 2025,
+    "currentMonthIndex": 0,
+    "currentDay": 1,
+    "currentDayPartIndex": 0
 }
