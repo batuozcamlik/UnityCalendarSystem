@@ -25,6 +25,7 @@ public class CalendarEditorWindow : EditorWindow
     private Vector2 scrollPosition;
 
     private ReorderableList reorderableDayParts;
+    private ReorderableList reorderableWeekDays;
     private ReorderableList reorderableMonths;
 
     private GUIStyle titleStyle;
@@ -96,6 +97,8 @@ public class CalendarEditorWindow : EditorWindow
 
         defaultData.dayParts = new List<string> { "Morning", "Noon", "Afternoon", "Evening" };
 
+        defaultData.weekDays = new List<string> { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+
         defaultData.months = new List<MonthDefinition>
         {
             new MonthDefinition("January", 31), new MonthDefinition("February", 28),
@@ -110,6 +113,7 @@ public class CalendarEditorWindow : EditorWindow
         defaultData.currentMonthIndex = 0;
         defaultData.currentDay = 1;
         defaultData.currentDayPartIndex = 0;
+        defaultData.currentWeekDayIndex = 0;
 
         defaultResetJson = JsonUtility.ToJson(defaultData, true);
     }
@@ -176,7 +180,7 @@ public class CalendarEditorWindow : EditorWindow
         if (CalendarData == null) return;
 
         reorderableDayParts = new ReorderableList(CalendarData.dayParts, typeof(string), true, true, false, false);
-        reorderableDayParts.drawHeaderCallback = (Rect rect) => { EditorGUI.LabelField(rect, new GUIContent("Day Parts List", "Gün içindeki döngü parçalarının sırasını ve adını belirler."), EditorStyles.boldLabel); };
+        reorderableDayParts.drawHeaderCallback = (Rect rect) => { EditorGUI.LabelField(rect, new GUIContent("Day Parts List", "Gün içindeki döngü parçalarının sırasını belirler."), EditorStyles.boldLabel); };
         reorderableDayParts.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
         {
             if (index >= CalendarData.dayParts.Count) return;
@@ -221,6 +225,54 @@ public class CalendarEditorWindow : EditorWindow
             }
         };
         reorderableDayParts.onReorderCallbackWithDetails = (ReorderableList list, int oldIndex, int newIndex) => { Undo.RecordObject(dataWrapper, "Reorder Day Parts"); CheckIfDirty(); };
+
+        reorderableWeekDays = new ReorderableList(CalendarData.weekDays, typeof(string), true, true, false, false);
+        reorderableWeekDays.drawHeaderCallback = (Rect rect) => { EditorGUI.LabelField(rect, new GUIContent("Week Days List", "Haftanın günlerinin sırasını ve isimlerini belirler."), EditorStyles.boldLabel); };
+        reorderableWeekDays.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
+        {
+            if (index >= CalendarData.weekDays.Count) return;
+            rect.y += 2;
+            float btnWidth = 75f; float spacing = 5f; float totalBtnArea = (btnWidth * 2) + spacing; float textWidth = rect.width - totalBtnArea - spacing;
+
+            string controlName = "WeekDay_" + index;
+            GUI.SetNextControlName(controlName);
+
+            Color originalColor = GUI.backgroundColor;
+            if (string.IsNullOrWhiteSpace(CalendarData.weekDays[index])) GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
+
+            EditorGUI.BeginChangeCheck();
+            string newVal = EditorGUI.TextField(new Rect(rect.x, rect.y, textWidth, EditorGUIUtility.singleLineHeight), new GUIContent("", "Gün adı."), CalendarData.weekDays[index]);
+            GUI.backgroundColor = originalColor;
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(dataWrapper, "Change Week Day Name");
+                CalendarData.weekDays[index] = newVal;
+                CheckIfDirty();
+            }
+
+            if (GUI.Button(new Rect(rect.x + textWidth + spacing, rect.y, btnWidth, EditorGUIUtility.singleLineHeight), "Duplicate"))
+            {
+                Undo.RecordObject(dataWrapper, "Duplicate Week Day");
+                CalendarData.weekDays.Insert(index + 1, CalendarData.weekDays[index] + " (Copy)");
+                CheckIfDirty();
+                ShowNotification("Week Day Duplicated", NotificationType.Success);
+            }
+            if (GUI.Button(new Rect(rect.x + textWidth + spacing + btnWidth + spacing, rect.y, btnWidth, EditorGUIUtility.singleLineHeight), "Delete"))
+            {
+                bool canDelete = CalendarData.weekDays[index] == "New Day" || string.IsNullOrWhiteSpace(CalendarData.weekDays[index]);
+                if (canDelete || EditorUtility.DisplayDialog("Silme Onayı", $"'{CalendarData.weekDays[index]}' silinsin mi?", "Evet", "İptal"))
+                {
+                    Undo.RecordObject(dataWrapper, "Remove Week Day");
+                    CalendarData.weekDays.RemoveAt(index);
+                    CheckIfDirty();
+                    ShowNotification("Week Day Deleted", NotificationType.Success);
+                    GUIUtility.ExitGUI();
+                }
+            }
+        };
+        reorderableWeekDays.onReorderCallbackWithDetails = (ReorderableList list, int oldIndex, int newIndex) => { Undo.RecordObject(dataWrapper, "Reorder Week Days"); CheckIfDirty(); };
+
 
         reorderableMonths = new ReorderableList(CalendarData.months, typeof(MonthDefinition), true, true, false, false);
         reorderableMonths.drawHeaderCallback = (Rect rect) =>
@@ -297,7 +349,7 @@ public class CalendarEditorWindow : EditorWindow
             e.Use();
         }
 
-        if (reorderableDayParts == null || reorderableMonths == null) InitializeLists();
+        if (reorderableDayParts == null || reorderableMonths == null || reorderableWeekDays == null) InitializeLists();
 
         if (!string.IsNullOrEmpty(focusRequest) && Event.current.type == EventType.Repaint)
         {
@@ -351,6 +403,22 @@ public class CalendarEditorWindow : EditorWindow
             }
 
             EditorGUI.BeginChangeCheck();
+            string[] weekDayOptions = CalendarData.weekDays.ToArray();
+            if (weekDayOptions.Length > 0)
+            {
+                int newWeekDayIndex = EditorGUILayout.Popup(new GUIContent("Current Week Day", "Haftanın hangi günü?"), CalendarData.currentWeekDayIndex, weekDayOptions);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(dataWrapper, "Change Week Day");
+                    CalendarData.currentWeekDayIndex = newWeekDayIndex;
+                }
+            }
+            else
+            {
+                EditorGUILayout.HelpBox("Lütfen önce hafta günü ekleyin.", MessageType.Warning);
+            }
+
+            EditorGUI.BeginChangeCheck();
             string[] dayPartOptions = CalendarData.dayParts.ToArray();
             if (dayPartOptions.Length > 0)
             {
@@ -377,6 +445,20 @@ public class CalendarEditorWindow : EditorWindow
                 Undo.RecordObject(dataWrapper, "Add Day Part");
                 CalendarData.dayParts.Add("New Part");
                 focusRequest = "DayPart_" + (CalendarData.dayParts.Count - 1);
+                CheckIfDirty();
+            }
+        });
+
+        GUILayout.Space(15);
+
+        DrawSection(new GUIContent("Week Days Configuration", "Haftanın günleri ayarları."), () =>
+        {
+            if (reorderableWeekDays != null) reorderableWeekDays.DoLayoutList();
+            if (GUILayout.Button(new GUIContent("+ Add New Week Day"), GUILayout.Height(25)))
+            {
+                Undo.RecordObject(dataWrapper, "Add Week Day");
+                CalendarData.weekDays.Add("New Day");
+                focusRequest = "WeekDay_" + (CalendarData.weekDays.Count - 1);
                 CheckIfDirty();
             }
         });
@@ -501,11 +583,12 @@ public class CalendarEditorWindow : EditorWindow
         int totalMonths = CalendarData.months.Count;
         int totalDays = CalendarData.months.Sum(m => m.daysInMonth);
         int dayPartsCount = CalendarData.dayParts.Count;
+        int weekDaysCount = CalendarData.weekDays.Count;
 
         GUILayout.BeginHorizontal();
         GUILayout.FlexibleSpace();
-        string statsText = $"Total Months: {totalMonths}  |  Year Length: {totalDays} Days  |  Day Cycles: {dayPartsCount}";
-        GUILayout.Label(statsText, statsStyle, GUILayout.Height(24), GUILayout.Width(450));
+        string statsText = $"Total Months: {totalMonths}  |  Year Length: {totalDays} Days  |  Week: {weekDaysCount} Days  |  Day Cycles: {dayPartsCount}";
+        GUILayout.Label(statsText, statsStyle, GUILayout.Height(24), GUILayout.Width(500));
         GUILayout.FlexibleSpace();
         GUILayout.EndHorizontal();
         GUILayout.Space(10);
@@ -620,6 +703,15 @@ public class CalendarEditorWindow : EditorWindow
         CalendarData.dayParts.Add("Afternoon");
         CalendarData.dayParts.Add("Evening");
 
+        CalendarData.weekDays.Clear();
+        CalendarData.weekDays.Add("Monday");
+        CalendarData.weekDays.Add("Tuesday");
+        CalendarData.weekDays.Add("Wednesday");
+        CalendarData.weekDays.Add("Thursday");
+        CalendarData.weekDays.Add("Friday");
+        CalendarData.weekDays.Add("Saturday");
+        CalendarData.weekDays.Add("Sunday");
+
         CalendarData.months.Clear();
         CalendarData.months.Add(new MonthDefinition("January", 31));
         CalendarData.months.Add(new MonthDefinition("February", 28));
@@ -638,6 +730,7 @@ public class CalendarEditorWindow : EditorWindow
         CalendarData.currentMonthIndex = 0;
         CalendarData.currentDay = 1;
         CalendarData.currentDayPartIndex = 0;
+        CalendarData.currentWeekDayIndex = 0;
 
         InitializeLists();
         GUI.FocusControl(null);
@@ -655,6 +748,14 @@ public class CalendarEditorWindow : EditorWindow
             if (string.IsNullOrWhiteSpace(CalendarData.dayParts[i]))
             {
                 EditorUtility.DisplayDialog("Hata", $"Day Part index {i} boş olamaz.", "OK");
+                return false;
+            }
+        }
+        for (int i = 0; i < CalendarData.weekDays.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(CalendarData.weekDays[i]))
+            {
+                EditorUtility.DisplayDialog("Hata", $"Week Day index {i} boş olamaz.", "OK");
                 return false;
             }
         }

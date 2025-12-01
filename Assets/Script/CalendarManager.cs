@@ -10,7 +10,6 @@ public class CalendarManager : MonoBehaviour
     public CalendarData calendarData;
 
     private string saveFileName = "calendar_save.json";
-
     private string resourceFileName = "calendar_config";
 
     private void Awake()
@@ -82,6 +81,8 @@ public class CalendarManager : MonoBehaviour
 
     public void SkipTimePart(int amount)
     {
+        if (calendarData == null) return;
+
         calendarData.currentDayPartIndex += amount;
         int totalPartsInADay = calendarData.dayParts.Count;
 
@@ -108,8 +109,22 @@ public class CalendarManager : MonoBehaviour
     private void AdvanceDay()
     {
         if (calendarData.months.Count == 0) return;
+
+      
         calendarData.currentDay++;
 
+      
+        if (calendarData.weekDays.Count > 0)
+        {
+            calendarData.currentWeekDayIndex++;
+         
+            if (calendarData.currentWeekDayIndex >= calendarData.weekDays.Count)
+            {
+                calendarData.currentWeekDayIndex = 0;
+            }
+        }
+
+   
         int daysInCurrentMonth = calendarData.months[calendarData.currentMonthIndex].daysInMonth;
         if (calendarData.currentDay > daysInCurrentMonth)
         {
@@ -131,11 +146,26 @@ public class CalendarManager : MonoBehaviour
     private void RegressDay()
     {
         if (calendarData.months.Count == 0) return;
+
+    
         calendarData.currentDay--;
 
+       
+        if (calendarData.weekDays.Count > 0)
+        {
+            calendarData.currentWeekDayIndex--;
+      
+            if (calendarData.currentWeekDayIndex < 0)
+            {
+                calendarData.currentWeekDayIndex = calendarData.weekDays.Count - 1;
+            }
+        }
+
+       
         if (calendarData.currentDay < 1)
         {
             RegressMonth();
+     
             int daysInPrevMonth = calendarData.months[calendarData.currentMonthIndex].daysInMonth;
             calendarData.currentDay = daysInPrevMonth;
         }
@@ -159,6 +189,15 @@ public class CalendarManager : MonoBehaviour
         int mIndex = Mathf.Clamp(calendarData.currentMonthIndex, 0, calendarData.months.Count - 1);
         int pIndex = Mathf.Clamp(calendarData.currentDayPartIndex, 0, calendarData.dayParts.Count - 1);
 
-        return $"{calendarData.currentDay} {calendarData.months[mIndex].monthName} {calendarData.currentYear} - {calendarData.dayParts[pIndex]}";
+     
+        string weekDayName = "";
+        if (calendarData.weekDays.Count > 0)
+        {
+            int wIndex = Mathf.Clamp(calendarData.currentWeekDayIndex, 0, calendarData.weekDays.Count - 1);
+            weekDayName = calendarData.weekDays[wIndex];
+        }
+
+       
+        return $"{calendarData.currentDay} {calendarData.months[mIndex].monthName} {calendarData.currentYear} {weekDayName} - {calendarData.dayParts[pIndex]}";
     }
 }

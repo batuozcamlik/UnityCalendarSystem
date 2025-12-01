@@ -5,6 +5,16 @@
         "Afternoon",
         "Evening"
     ],
+    "weekDays": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+        "DenemeGun"
+    ],
     "months": [
         {
             "monthName": "January",
@@ -55,8 +65,9 @@
             "daysInMonth": 31
         }
     ],
-    "currentYear": 2025,
-    "currentMonthIndex": 0,
-    "currentDay": 1,
-    "currentDayPartIndex": 0
+    "currentYear": 2019,
+    "currentMonthIndex": 7,
+    "currentDay": 4,
+    "currentDayPartIndex": 1,
+    "currentWeekDayIndex": 4
 }

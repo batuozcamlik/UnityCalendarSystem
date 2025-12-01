@@ -66,6 +66,7 @@ public class CalendarDebugTool : MonoBehaviour
         }
     }
 
+   
     private void UpdateTestUI()
     {
         if (dateTestText == null || calendarManager == null || calendarManager.calendarData == null) return;
@@ -76,7 +77,17 @@ public class CalendarDebugTool : MonoBehaviour
 
         int displayMonth = data.currentMonthIndex + 1;
 
-        dateTestText.text = $"{data.currentDay:00}/{displayMonth:00}/{data.currentYear}\n{data.dayParts[data.currentDayPartIndex]}";
+       
+        string weekDayStr = "";
+        if (data.weekDays != null && data.weekDays.Count > 0)
+        {
+        
+            int wIndex = Mathf.Clamp(data.currentWeekDayIndex, 0, data.weekDays.Count - 1);
+           
+            weekDayStr = " " + data.weekDays[wIndex];
+        }
+
+        dateTestText.text = $"{data.currentDay:00}/{displayMonth:00}/{data.currentYear}{weekDayStr}\n{data.dayParts[data.currentDayPartIndex]}";
     }
 
     private void PrintLog(int absAmount, bool isForward, string before, string after)
@@ -90,7 +101,8 @@ public class CalendarDebugTool : MonoBehaviour
 
         sb.Append($"<color={mainColor}><b>[{absAmount} {directionText}]</b></color> ");
         sb.Append(before);
-        sb.Append($" <color={arrowColor}><b></b></color> ");
+        
+        sb.Append($" <color={arrowColor}><b>➜</b></color> ");
         sb.Append($"<color={dateColor}>{after}</color>");
 
         Debug.Log(sb.ToString());
