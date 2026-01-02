@@ -4,17 +4,22 @@ using UnityEngine;
 [System.Serializable]
 public class CalendarData
 {
+    #region Time Definitions
     public List<string> dayParts = new List<string>();
     public List<string> weekDays = new List<string>();
     public List<MonthDefinition> months = new List<MonthDefinition>();
+    #endregion
 
+    #region Current State
     public int currentYear = 1;
     public int currentMonthIndex = 0;
     public int currentDay = 1;
     public int currentDayPartIndex = 0;
     public int currentWeekDayIndex = 0;
+    #endregion
 }
 
+#region Helper Classes
 [System.Serializable]
 public class MonthDefinition
 {
@@ -27,3 +32,4 @@ public class MonthDefinition
         daysInMonth = days;
     }
 }
+#endregion

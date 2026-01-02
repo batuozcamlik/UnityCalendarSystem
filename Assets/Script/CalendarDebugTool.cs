@@ -7,23 +7,28 @@ using UnityEditor;
 
 public class CalendarDebugTool : MonoBehaviour
 {
-    [Header("Referanslar")]
+    #region References
+    [Header("References")]
     public CalendarManager calendarManager;
 
-    [Header("UI Test (Opsiyonel)")]
+    [Header("UI Test (Optional)")]
     public TextMeshProUGUI dateTestText;
+    #endregion
 
-    [Header("Test Ayarları")]
+    #region Settings
+    [Header("Test Settings")]
     [Min(0)]
     public int skipAmount = 1;
 
     public bool showDebugLogs = true;
+    #endregion
 
     private void Start()
     {
         UpdateTestUI();
     }
 
+    #region Control Logic
     public void RunSkipForward()
     {
         if (CheckPlayMode()) RunTest(skipAmount, true);
@@ -38,7 +43,7 @@ public class CalendarDebugTool : MonoBehaviour
     {
         if (!Application.isPlaying)
         {
-            Debug.LogWarning("Testi çalıştırmak için Oyun Moduna (Play) girmelisiniz!");
+            Debug.LogWarning("Must be in Play Mode to run tests!");
             return false;
         }
         return true;
@@ -48,7 +53,7 @@ public class CalendarDebugTool : MonoBehaviour
     {
         if (calendarManager == null || calendarManager.calendarData == null)
         {
-            Debug.LogError("Calendar Manager veya Data eksik!");
+            Debug.LogError("Calendar Manager or Data is missing!");
             return;
         }
 
@@ -65,8 +70,9 @@ public class CalendarDebugTool : MonoBehaviour
             PrintLog(Mathf.Abs(amount), isForward, beforeDate, afterDate);
         }
     }
+    #endregion
 
-   
+    #region Visualization & Logging
     private void UpdateTestUI()
     {
         if (dateTestText == null || calendarManager == null || calendarManager.calendarData == null) return;
@@ -77,13 +83,10 @@ public class CalendarDebugTool : MonoBehaviour
 
         int displayMonth = data.currentMonthIndex + 1;
 
-       
         string weekDayStr = "";
         if (data.weekDays != null && data.weekDays.Count > 0)
         {
-        
             int wIndex = Mathf.Clamp(data.currentWeekDayIndex, 0, data.weekDays.Count - 1);
-           
             weekDayStr = " " + data.weekDays[wIndex];
         }
 
@@ -97,16 +100,17 @@ public class CalendarDebugTool : MonoBehaviour
         string mainColor = isForward ? "#44FF44" : "#FF6666";
         string arrowColor = "#FFFF00";
         string dateColor = "#88CCFF";
-        string directionText = isForward ? "İleri" : "Geri";
+        string directionText = isForward ? "Forward" : "Backward";
 
         sb.Append($"<color={mainColor}><b>[{absAmount} {directionText}]</b></color> ");
         sb.Append(before);
-        
+
         sb.Append($" <color={arrowColor}><b>➜</b></color> ");
         sb.Append($"<color={dateColor}>{after}</color>");
 
         Debug.Log(sb.ToString());
     }
+    #endregion
 
     private void OnValidate()
     {
@@ -126,13 +130,13 @@ public class CalendarDebugToolEditor : Editor
 
         if (!Application.isPlaying)
         {
-            EditorGUILayout.HelpBox("Test butonlarını kullanmak için oyunu başlatın.", MessageType.Info);
+            EditorGUILayout.HelpBox("Enter Play Mode to use test buttons.", MessageType.Info);
             GUI.enabled = false;
         }
 
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button($" ILERI ({script.skipAmount})", GUILayout.Height(40))) script.RunSkipForward();
-        if (GUILayout.Button($" GERI ({script.skipAmount})", GUILayout.Height(40))) script.RunSkipBackward();
+        if (GUILayout.Button($" FORWARD ({script.skipAmount})", GUILayout.Height(40))) script.RunSkipForward();
+        if (GUILayout.Button($" BACKWARD ({script.skipAmount})", GUILayout.Height(40))) script.RunSkipBackward();
         GUILayout.EndHorizontal();
         GUI.enabled = true;
     }

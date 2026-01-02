@@ -12,8 +12,7 @@
         "Thursday",
         "Friday",
         "Saturday",
-        "Sunday",
-        "DenemeGun"
+        "Sunday"
     ],
     "months": [
         {
@@ -65,9 +64,9 @@
             "daysInMonth": 31
         }
     ],
-    "currentYear": 2019,
-    "currentMonthIndex": 7,
-    "currentDay": 4,
-    "currentDayPartIndex": 1,
-    "currentWeekDayIndex": 4
+    "currentYear": 2025,
+    "currentMonthIndex": 0,
+    "currentDay": 8,
+    "currentDayPartIndex": 3,
+    "currentWeekDayIndex": 0
 }

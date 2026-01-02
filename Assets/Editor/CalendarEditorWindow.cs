@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
+#region Data Structures
 public class CalendarDataWrapper : ScriptableObject
 {
     public CalendarData data;
@@ -15,9 +16,11 @@ public enum NotificationType
     Success,
     Warning
 }
+#endregion
 
 public class CalendarEditorWindow : EditorWindow
 {
+    #region Properties & Fields
     private CalendarDataWrapper dataWrapper;
     private CalendarData CalendarData => dataWrapper != null ? dataWrapper.data : null;
 
@@ -36,17 +39,16 @@ public class CalendarEditorWindow : EditorWindow
 
     private string lastSavedJson = "";
     private string focusRequest = "";
-
     private string defaultResetJson;
+    private string saveChangesMessage;
 
-    private double lastSaveTime = -100;
     private const float TOAST_DURATION = 2.5f;
     private string currentToastMessage = "";
     private double toastStartTime = -100;
     private Color currentToastColor = Color.white;
+    #endregion
 
-    private string saveChangesMessage;
-
+    #region Window Lifecycle
     [MenuItem("Tools/Calendar Manager")]
     public static void ShowWindow()
     {
@@ -64,8 +66,7 @@ public class CalendarEditorWindow : EditorWindow
         }
 
         jsonPath = Path.Combine(resourcesDir, "calendar_config.json");
-
-        this.saveChangesMessage = "Yapılan değişiklikleri kaydetmediniz. Çıkmak istiyor musunuz?";
+        this.saveChangesMessage = "You have unsaved changes. Do you want to exit?";
 
         if (dataWrapper == null)
         {
@@ -90,243 +91,9 @@ public class CalendarEditorWindow : EditorWindow
         CheckIfDirty();
         Repaint();
     }
+    #endregion
 
-    private void CalculateDefaultJson()
-    {
-        CalendarData defaultData = new CalendarData();
-
-        defaultData.dayParts = new List<string> { "Morning", "Noon", "Afternoon", "Evening" };
-
-        defaultData.weekDays = new List<string> { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
-
-        defaultData.months = new List<MonthDefinition>
-        {
-            new MonthDefinition("January", 31), new MonthDefinition("February", 28),
-            new MonthDefinition("March", 31), new MonthDefinition("April", 30),
-            new MonthDefinition("May", 31), new MonthDefinition("June", 30),
-            new MonthDefinition("July", 31), new MonthDefinition("August", 31),
-            new MonthDefinition("September", 30), new MonthDefinition("October", 31),
-            new MonthDefinition("November", 30), new MonthDefinition("December", 31)
-        };
-
-        defaultData.currentYear = 2025;
-        defaultData.currentMonthIndex = 0;
-        defaultData.currentDay = 1;
-        defaultData.currentDayPartIndex = 0;
-        defaultData.currentWeekDayIndex = 0;
-
-        defaultResetJson = JsonUtility.ToJson(defaultData, true);
-    }
-
-    private void ShowNotification(string message, NotificationType type)
-    {
-        currentToastMessage = message;
-        toastStartTime = EditorApplication.timeSinceStartup;
-
-        if (type == NotificationType.Success)
-            currentToastColor = new Color(0.2f, 1.0f, 0.2f);
-        else
-            currentToastColor = new Color(1.0f, 0.4f, 0.4f);
-
-        Repaint();
-    }
-
-    private void InitStyles()
-    {
-        if (titleStyle == null)
-        {
-            titleStyle = new GUIStyle(EditorStyles.boldLabel);
-            titleStyle.fontSize = 13;
-            titleStyle.margin = new RectOffset(0, 0, 5, 5);
-            titleStyle.normal.textColor = EditorGUIUtility.isProSkin ? new Color(0.8f, 0.8f, 0.8f) : Color.black;
-        }
-
-        if (linkStyle == null)
-        {
-            linkStyle = new GUIStyle(EditorStyles.label);
-            linkStyle.normal.textColor = new Color(0.5f, 0.5f, 0.5f, 1f);
-            linkStyle.hover.textColor = new Color(0.7f, 0.7f, 0.7f, 1f);
-            linkStyle.active.textColor = Color.white;
-        }
-
-        if (statsStyle == null)
-        {
-            statsStyle = new GUIStyle(EditorStyles.helpBox);
-            statsStyle.fontSize = 11;
-            statsStyle.alignment = TextAnchor.MiddleCenter;
-            statsStyle.normal.textColor = EditorGUIUtility.isProSkin ? new Color(0.7f, 0.9f, 0.7f) : new Color(0.2f, 0.5f, 0.2f);
-        }
-
-        if (toastStyle == null)
-        {
-            toastStyle = new GUIStyle(EditorStyles.label);
-            toastStyle.fontSize = 16;
-            toastStyle.fontStyle = FontStyle.Bold;
-            toastStyle.alignment = TextAnchor.MiddleLeft;
-            toastStyle.normal.background = null;
-        }
-
-        if (setupButtonStyle == null)
-        {
-            setupButtonStyle = new GUIStyle(GUI.skin.button);
-            setupButtonStyle.fontSize = 14;
-            setupButtonStyle.padding = new RectOffset(10, 10, 10, 10);
-            setupButtonStyle.fontStyle = FontStyle.Bold;
-        }
-    }
-
-    private void InitializeLists()
-    {
-        if (CalendarData == null) return;
-
-        reorderableDayParts = new ReorderableList(CalendarData.dayParts, typeof(string), true, true, false, false);
-        reorderableDayParts.drawHeaderCallback = (Rect rect) => { EditorGUI.LabelField(rect, new GUIContent("Day Parts List", "Gün içindeki döngü parçalarının sırasını belirler."), EditorStyles.boldLabel); };
-        reorderableDayParts.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
-        {
-            if (index >= CalendarData.dayParts.Count) return;
-            rect.y += 2;
-            float btnWidth = 75f; float spacing = 5f; float totalBtnArea = (btnWidth * 2) + spacing; float textWidth = rect.width - totalBtnArea - spacing;
-
-            string controlName = "DayPart_" + index;
-            GUI.SetNextControlName(controlName);
-
-            Color originalColor = GUI.backgroundColor;
-            if (string.IsNullOrWhiteSpace(CalendarData.dayParts[index])) GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
-
-            EditorGUI.BeginChangeCheck();
-            string newVal = EditorGUI.TextField(new Rect(rect.x, rect.y, textWidth, EditorGUIUtility.singleLineHeight), new GUIContent("", "Parça adı."), CalendarData.dayParts[index]);
-            GUI.backgroundColor = originalColor;
-
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(dataWrapper, "Change Day Part Name");
-                CalendarData.dayParts[index] = newVal;
-                CheckIfDirty();
-            }
-
-            if (GUI.Button(new Rect(rect.x + textWidth + spacing, rect.y, btnWidth, EditorGUIUtility.singleLineHeight), "Duplicate"))
-            {
-                Undo.RecordObject(dataWrapper, "Duplicate Day Part");
-                CalendarData.dayParts.Insert(index + 1, CalendarData.dayParts[index] + " (Copy)");
-                CheckIfDirty();
-                ShowNotification("Day Part Duplicated", NotificationType.Success);
-            }
-            if (GUI.Button(new Rect(rect.x + textWidth + spacing + btnWidth + spacing, rect.y, btnWidth, EditorGUIUtility.singleLineHeight), "Delete"))
-            {
-                bool canDelete = CalendarData.dayParts[index] == "New Part" || string.IsNullOrWhiteSpace(CalendarData.dayParts[index]);
-                if (canDelete || EditorUtility.DisplayDialog("Silme Onayı", $"'{CalendarData.dayParts[index]}' silinsin mi?", "Evet", "İptal"))
-                {
-                    Undo.RecordObject(dataWrapper, "Remove Day Part");
-                    CalendarData.dayParts.RemoveAt(index);
-                    CheckIfDirty();
-                    ShowNotification("Day Part Deleted", NotificationType.Success);
-                    GUIUtility.ExitGUI();
-                }
-            }
-        };
-        reorderableDayParts.onReorderCallbackWithDetails = (ReorderableList list, int oldIndex, int newIndex) => { Undo.RecordObject(dataWrapper, "Reorder Day Parts"); CheckIfDirty(); };
-
-        reorderableWeekDays = new ReorderableList(CalendarData.weekDays, typeof(string), true, true, false, false);
-        reorderableWeekDays.drawHeaderCallback = (Rect rect) => { EditorGUI.LabelField(rect, new GUIContent("Week Days List", "Haftanın günlerinin sırasını ve isimlerini belirler."), EditorStyles.boldLabel); };
-        reorderableWeekDays.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
-        {
-            if (index >= CalendarData.weekDays.Count) return;
-            rect.y += 2;
-            float btnWidth = 75f; float spacing = 5f; float totalBtnArea = (btnWidth * 2) + spacing; float textWidth = rect.width - totalBtnArea - spacing;
-
-            string controlName = "WeekDay_" + index;
-            GUI.SetNextControlName(controlName);
-
-            Color originalColor = GUI.backgroundColor;
-            if (string.IsNullOrWhiteSpace(CalendarData.weekDays[index])) GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
-
-            EditorGUI.BeginChangeCheck();
-            string newVal = EditorGUI.TextField(new Rect(rect.x, rect.y, textWidth, EditorGUIUtility.singleLineHeight), new GUIContent("", "Gün adı."), CalendarData.weekDays[index]);
-            GUI.backgroundColor = originalColor;
-
-            if (EditorGUI.EndChangeCheck())
-            {
-                Undo.RecordObject(dataWrapper, "Change Week Day Name");
-                CalendarData.weekDays[index] = newVal;
-                CheckIfDirty();
-            }
-
-            if (GUI.Button(new Rect(rect.x + textWidth + spacing, rect.y, btnWidth, EditorGUIUtility.singleLineHeight), "Duplicate"))
-            {
-                Undo.RecordObject(dataWrapper, "Duplicate Week Day");
-                CalendarData.weekDays.Insert(index + 1, CalendarData.weekDays[index] + " (Copy)");
-                CheckIfDirty();
-                ShowNotification("Week Day Duplicated", NotificationType.Success);
-            }
-            if (GUI.Button(new Rect(rect.x + textWidth + spacing + btnWidth + spacing, rect.y, btnWidth, EditorGUIUtility.singleLineHeight), "Delete"))
-            {
-                bool canDelete = CalendarData.weekDays[index] == "New Day" || string.IsNullOrWhiteSpace(CalendarData.weekDays[index]);
-                if (canDelete || EditorUtility.DisplayDialog("Silme Onayı", $"'{CalendarData.weekDays[index]}' silinsin mi?", "Evet", "İptal"))
-                {
-                    Undo.RecordObject(dataWrapper, "Remove Week Day");
-                    CalendarData.weekDays.RemoveAt(index);
-                    CheckIfDirty();
-                    ShowNotification("Week Day Deleted", NotificationType.Success);
-                    GUIUtility.ExitGUI();
-                }
-            }
-        };
-        reorderableWeekDays.onReorderCallbackWithDetails = (ReorderableList list, int oldIndex, int newIndex) => { Undo.RecordObject(dataWrapper, "Reorder Week Days"); CheckIfDirty(); };
-
-
-        reorderableMonths = new ReorderableList(CalendarData.months, typeof(MonthDefinition), true, true, false, false);
-        reorderableMonths.drawHeaderCallback = (Rect rect) =>
-        {
-            float btnWidth = 75f; float spacing = 5f; float daysWidth = 50f; float actionWidth = (btnWidth * 2) + spacing; float nameWidth = rect.width - daysWidth - actionWidth - (spacing * 2);
-            EditorGUI.LabelField(new Rect(rect.x, rect.y, nameWidth, rect.height), new GUIContent("Month Name"), EditorStyles.boldLabel);
-            EditorGUI.LabelField(new Rect(rect.x + nameWidth + spacing, rect.y, daysWidth, rect.height), new GUIContent("Days"), EditorStyles.boldLabel);
-            EditorGUI.LabelField(new Rect(rect.x + nameWidth + daysWidth + (spacing * 2), rect.y, actionWidth, rect.height), new GUIContent("Actions"), EditorStyles.boldLabel);
-        };
-        reorderableMonths.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
-        {
-            if (index >= CalendarData.months.Count) return;
-            var element = CalendarData.months[index];
-            rect.y += 2; float height = EditorGUIUtility.singleLineHeight;
-            float btnWidth = 75f; float spacing = 5f; float daysWidth = 50f; float actionWidth = (btnWidth * 2) + spacing; float nameWidth = rect.width - daysWidth - actionWidth - (spacing * 2);
-
-            string controlName = "MonthName_" + index;
-            GUI.SetNextControlName(controlName);
-
-            Color originalColor = GUI.backgroundColor;
-            if (string.IsNullOrWhiteSpace(element.monthName)) GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
-
-            EditorGUI.BeginChangeCheck();
-            string newName = EditorGUI.TextField(new Rect(rect.x, rect.y, nameWidth, height), new GUIContent("", "Ay adı."), element.monthName);
-            GUI.backgroundColor = originalColor;
-            if (EditorGUI.EndChangeCheck()) { Undo.RecordObject(dataWrapper, "Change Month Name"); element.monthName = newName; CheckIfDirty(); }
-
-            EditorGUI.BeginChangeCheck();
-            int newDays = EditorGUI.IntField(new Rect(rect.x + nameWidth + spacing, rect.y, daysWidth, height), new GUIContent("", "Gün sayısı."), element.daysInMonth);
-            if (EditorGUI.EndChangeCheck()) { Undo.RecordObject(dataWrapper, "Change Month Days"); element.daysInMonth = Mathf.Max(1, newDays); CheckIfDirty(); }
-
-            if (GUI.Button(new Rect(rect.x + nameWidth + daysWidth + (spacing * 2), rect.y, btnWidth, height), "Duplicate"))
-            {
-                Undo.RecordObject(dataWrapper, "Duplicate Month");
-                CalendarData.months.Insert(index + 1, new MonthDefinition(element.monthName + " (Copy)", element.daysInMonth));
-                CheckIfDirty();
-                ShowNotification("Month Duplicated", NotificationType.Success);
-            }
-            if (GUI.Button(new Rect(rect.x + nameWidth + daysWidth + (spacing * 2) + btnWidth + spacing, rect.y, btnWidth, height), "Delete"))
-            {
-                bool canDelete = element.monthName == "New Month" || string.IsNullOrWhiteSpace(element.monthName);
-                if (canDelete || EditorUtility.DisplayDialog("Silme Onayı", $"'{element.monthName}' silinsin mi?", "Evet", "İptal"))
-                {
-                    Undo.RecordObject(dataWrapper, "Remove Month");
-                    CalendarData.months.RemoveAt(index);
-                    CheckIfDirty();
-                    ShowNotification("Month Deleted", NotificationType.Success);
-                    GUIUtility.ExitGUI();
-                }
-            }
-        };
-        reorderableMonths.onReorderCallbackWithDetails = (ReorderableList list, int oldIndex, int newIndex) => { Undo.RecordObject(dataWrapper, "Reorder Months"); CheckIfDirty(); };
-    }
-
+    #region GUI Rendering
     private void OnGUI()
     {
         InitStyles();
@@ -364,10 +131,10 @@ public class CalendarEditorWindow : EditorWindow
         scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
         GUILayout.Space(10);
 
-        DrawSection(new GUIContent("Current Date State", "Oyunun başlayacağı veya şu anki kayıtlı tarihi ayarlayın."), () =>
+        DrawSection(new GUIContent("Current Date State", "Set the starting or current saved date."), () =>
         {
             EditorGUI.BeginChangeCheck();
-            int newYear = EditorGUILayout.IntField(new GUIContent("Current Year", "Oyunun şu anki yılı."), CalendarData.currentYear);
+            int newYear = EditorGUILayout.IntField(new GUIContent("Current Year", "Current game year."), CalendarData.currentYear);
             if (EditorGUI.EndChangeCheck())
             {
                 Undo.RecordObject(dataWrapper, "Change Year");
@@ -379,7 +146,7 @@ public class CalendarEditorWindow : EditorWindow
 
             if (monthOptions.Length > 0)
             {
-                int newMonthIndex = EditorGUILayout.Popup(new GUIContent("Current Month", "Şu anki ay."), CalendarData.currentMonthIndex, monthOptions);
+                int newMonthIndex = EditorGUILayout.Popup(new GUIContent("Current Month", "Current month."), CalendarData.currentMonthIndex, monthOptions);
                 if (EditorGUI.EndChangeCheck())
                 {
                     Undo.RecordObject(dataWrapper, "Change Month");
@@ -388,14 +155,14 @@ public class CalendarEditorWindow : EditorWindow
             }
             else
             {
-                EditorGUILayout.HelpBox("Lütfen önce ay ekleyin.", MessageType.Warning);
+                EditorGUILayout.HelpBox("Please add a month first.", MessageType.Warning);
             }
 
             EditorGUI.BeginChangeCheck();
             int maxDays = (CalendarData.months.Count > 0 && CalendarData.currentMonthIndex < CalendarData.months.Count)
                           ? CalendarData.months[CalendarData.currentMonthIndex].daysInMonth : 30;
 
-            int newDay = EditorGUILayout.IntSlider(new GUIContent("Current Day", "Ayın kaçıncı günü?"), CalendarData.currentDay, 1, maxDays);
+            int newDay = EditorGUILayout.IntSlider(new GUIContent("Current Day", "Which day of the month?"), CalendarData.currentDay, 1, maxDays);
             if (EditorGUI.EndChangeCheck())
             {
                 Undo.RecordObject(dataWrapper, "Change Day");
@@ -406,7 +173,7 @@ public class CalendarEditorWindow : EditorWindow
             string[] weekDayOptions = CalendarData.weekDays.ToArray();
             if (weekDayOptions.Length > 0)
             {
-                int newWeekDayIndex = EditorGUILayout.Popup(new GUIContent("Current Week Day", "Haftanın hangi günü?"), CalendarData.currentWeekDayIndex, weekDayOptions);
+                int newWeekDayIndex = EditorGUILayout.Popup(new GUIContent("Current Week Day", "Which day of the week?"), CalendarData.currentWeekDayIndex, weekDayOptions);
                 if (EditorGUI.EndChangeCheck())
                 {
                     Undo.RecordObject(dataWrapper, "Change Week Day");
@@ -415,14 +182,14 @@ public class CalendarEditorWindow : EditorWindow
             }
             else
             {
-                EditorGUILayout.HelpBox("Lütfen önce hafta günü ekleyin.", MessageType.Warning);
+                EditorGUILayout.HelpBox("Please add a week day first.", MessageType.Warning);
             }
 
             EditorGUI.BeginChangeCheck();
             string[] dayPartOptions = CalendarData.dayParts.ToArray();
             if (dayPartOptions.Length > 0)
             {
-                int newPartIndex = EditorGUILayout.Popup(new GUIContent("Current Day Part", "Günün vakti."), CalendarData.currentDayPartIndex, dayPartOptions);
+                int newPartIndex = EditorGUILayout.Popup(new GUIContent("Current Day Part", "Time of day."), CalendarData.currentDayPartIndex, dayPartOptions);
                 if (EditorGUI.EndChangeCheck())
                 {
                     Undo.RecordObject(dataWrapper, "Change Day Part");
@@ -431,13 +198,13 @@ public class CalendarEditorWindow : EditorWindow
             }
             else
             {
-                EditorGUILayout.HelpBox("Lütfen önce gün parçası ekleyin.", MessageType.Warning);
+                EditorGUILayout.HelpBox("Please add a day part first.", MessageType.Warning);
             }
         });
 
         GUILayout.Space(15);
 
-        DrawSection(new GUIContent("Global Day Parts Configuration", "Gün döngüsü ayarları."), () =>
+        DrawSection(new GUIContent("Global Day Parts Configuration", "Day cycle settings."), () =>
         {
             if (reorderableDayParts != null) reorderableDayParts.DoLayoutList();
             if (GUILayout.Button(new GUIContent("+ Add New Day Part"), GUILayout.Height(25)))
@@ -451,7 +218,7 @@ public class CalendarEditorWindow : EditorWindow
 
         GUILayout.Space(15);
 
-        DrawSection(new GUIContent("Week Days Configuration", "Haftanın günleri ayarları."), () =>
+        DrawSection(new GUIContent("Week Days Configuration", "Week days settings."), () =>
         {
             if (reorderableWeekDays != null) reorderableWeekDays.DoLayoutList();
             if (GUILayout.Button(new GUIContent("+ Add New Week Day"), GUILayout.Height(25)))
@@ -465,7 +232,7 @@ public class CalendarEditorWindow : EditorWindow
 
         GUILayout.Space(15);
 
-        DrawSection(new GUIContent("Months Configuration", "Ay ve gün sayısı ayarları."), () =>
+        DrawSection(new GUIContent("Months Configuration", "Month and day count settings."), () =>
         {
             if (reorderableMonths != null) reorderableMonths.DoLayoutList();
             if (GUILayout.Button(new GUIContent("+ Add New Month"), GUILayout.Height(25)))
@@ -488,6 +255,60 @@ public class CalendarEditorWindow : EditorWindow
         {
             CheckIfDirty();
         }
+    }
+
+    private void DrawToolbar()
+    {
+        GUILayout.BeginHorizontal(EditorStyles.toolbar);
+
+        if (GUILayout.Button(new GUIContent("Load", "Load from disk."), EditorStyles.toolbarButton, GUILayout.Width(50)))
+        {
+            if (this.hasUnsavedChanges)
+            {
+                if (EditorUtility.DisplayDialog("Load Data", "There are unsaved changes. Loading will overwrite them.", "Yes, Load", "Cancel"))
+                    LoadData(showNotification: true, forceLoad: true);
+            }
+            else
+            {
+                ShowNotification("No unsaved changes to revert", NotificationType.Warning);
+            }
+        }
+
+        if (GUILayout.Button(new GUIContent("Save", "Save to disk (Ctrl+S)."), EditorStyles.toolbarButton, GUILayout.Width(50)))
+        {
+            if (this.hasUnsavedChanges) SaveData(forceSave: false);
+            else ShowNotification("Already Saved", NotificationType.Warning);
+        }
+
+        if (GUILayout.Button(new GUIContent("Reset", "Reset."), EditorStyles.toolbarButton, GUILayout.Width(50)))
+        {
+            string currentJson = JsonUtility.ToJson(CalendarData, true);
+            if (string.IsNullOrEmpty(defaultResetJson)) CalculateDefaultJson();
+
+            if (currentJson == defaultResetJson)
+            {
+                ShowNotification("Already set to default!", NotificationType.Warning);
+            }
+            else
+            {
+                if (EditorUtility.DisplayDialog("Reset Data", "All data will revert to default. Are you sure?", "Yes, Reset", "Cancel"))
+                    ResetToDefault();
+            }
+        }
+
+        GUILayout.Space(10);
+        GUILayout.Label($"File Location: Assets/Resources/calendar_config.json", EditorStyles.miniLabel);
+        GUILayout.FlexibleSpace();
+
+        if (this.hasUnsavedChanges)
+        {
+            Color oldColor = GUI.backgroundColor;
+            GUI.backgroundColor = new Color(1f, 0.5f, 0.5f);
+            GUILayout.Box(new GUIContent("Unsaved Changes"), EditorStyles.toolbarButton, GUILayout.Width(130));
+            GUI.backgroundColor = oldColor;
+        }
+
+        GUILayout.EndHorizontal();
     }
 
     private void DrawSetupScreen()
@@ -556,6 +377,20 @@ public class CalendarEditorWindow : EditorWindow
         GUILayout.EndVertical();
     }
 
+    private void DrawSection(GUIContent title, System.Action content)
+    {
+        GUILayout.BeginVertical("helpBox");
+        GUILayout.Space(5);
+        GUILayout.BeginHorizontal();
+        GUILayout.Label(EditorGUIUtility.IconContent("d_SettingsIcon"), GUILayout.Width(20), GUILayout.Height(20));
+        GUILayout.Label(title, titleStyle);
+        GUILayout.EndHorizontal();
+        GUILayout.Space(5);
+        content.Invoke();
+        GUILayout.Space(5);
+        GUILayout.EndVertical();
+    }
+
     private void DrawToast()
     {
         double timeSinceStart = EditorApplication.timeSinceStartup - toastStartTime;
@@ -594,94 +429,12 @@ public class CalendarEditorWindow : EditorWindow
         GUILayout.Space(10);
     }
 
-    private void CheckIfDirty()
-    {
-        if (CalendarData == null) return;
-        string currentJson = JsonUtility.ToJson(CalendarData, true);
-        if (currentJson != lastSavedJson)
-        {
-            this.hasUnsavedChanges = true;
-        }
-        else
-        {
-            this.hasUnsavedChanges = false;
-        }
-    }
-
-    private void DrawToolbar()
-    {
-        GUILayout.BeginHorizontal(EditorStyles.toolbar);
-
-        if (GUILayout.Button(new GUIContent("Load", "Diskten yükle."), EditorStyles.toolbarButton, GUILayout.Width(50)))
-        {
-            if (this.hasUnsavedChanges)
-            {
-                if (EditorUtility.DisplayDialog("Load Data", "Kaydedilmemiş değişiklikler var. Yüklerseniz kaybolacak.", "Yes, Load", "Cancel"))
-                    LoadData(showNotification: true, forceLoad: true);
-            }
-            else
-            {
-                ShowNotification("No unsaved changes to revert", NotificationType.Warning);
-            }
-        }
-
-        if (GUILayout.Button(new GUIContent("Save", "Diske kaydet (Ctrl+S)."), EditorStyles.toolbarButton, GUILayout.Width(50)))
-        {
-            if (this.hasUnsavedChanges) SaveData(forceSave: false);
-            else ShowNotification("Already Saved", NotificationType.Warning);
-        }
-
-        if (GUILayout.Button(new GUIContent("Reset", "Sıfırla."), EditorStyles.toolbarButton, GUILayout.Width(50)))
-        {
-            string currentJson = JsonUtility.ToJson(CalendarData, true);
-            if (string.IsNullOrEmpty(defaultResetJson)) CalculateDefaultJson();
-
-            if (currentJson == defaultResetJson)
-            {
-                ShowNotification("Already set to default!", NotificationType.Warning);
-            }
-            else
-            {
-                if (EditorUtility.DisplayDialog("Reset Data", "Tüm veriler varsayılana dönecek. Emin misiniz?", "Yes, Reset", "Cancel"))
-                    ResetToDefault();
-            }
-        }
-
-        GUILayout.Space(10);
-        GUILayout.Label($"File Location: Assets/Resources/calendar_config.json", EditorStyles.miniLabel);
-        GUILayout.FlexibleSpace();
-
-        if (this.hasUnsavedChanges)
-        {
-            Color oldColor = GUI.backgroundColor;
-            GUI.backgroundColor = new Color(1f, 0.5f, 0.5f);
-            GUILayout.Box(new GUIContent("Unsaved Changes"), EditorStyles.toolbarButton, GUILayout.Width(130));
-            GUI.backgroundColor = oldColor;
-        }
-
-        GUILayout.EndHorizontal();
-    }
-
-    private void DrawSection(GUIContent title, System.Action content)
-    {
-        GUILayout.BeginVertical("helpBox");
-        GUILayout.Space(5);
-        GUILayout.BeginHorizontal();
-        GUILayout.Label(EditorGUIUtility.IconContent("d_SettingsIcon"), GUILayout.Width(20), GUILayout.Height(20));
-        GUILayout.Label(title, titleStyle);
-        GUILayout.EndHorizontal();
-        GUILayout.Space(5);
-        content.Invoke();
-        GUILayout.Space(5);
-        GUILayout.EndVertical();
-    }
-
     private void DrawFooter()
     {
         GUILayout.BeginHorizontal();
         GUILayout.FlexibleSpace();
         GUILayout.Label("Created by Batu Özçamlık", EditorStyles.boldLabel);
-        if (GUILayout.Button(new GUIContent("| www.batuozcamlik.com", "Web sayfasına git."), linkStyle))
+        if (GUILayout.Button(new GUIContent("| www.batuozcamlik.com", "Go to website."), linkStyle))
         {
             Application.OpenURL("https://www.batuozcamlik.com");
         }
@@ -690,6 +443,189 @@ public class CalendarEditorWindow : EditorWindow
         GUILayout.Space(10);
         GUILayout.EndHorizontal();
         GUILayout.Space(5);
+    }
+    #endregion
+
+    #region List Initialization
+    private void InitializeLists()
+    {
+        if (CalendarData == null) return;
+
+        reorderableDayParts = new ReorderableList(CalendarData.dayParts, typeof(string), true, true, false, false);
+        reorderableDayParts.drawHeaderCallback = (Rect rect) => { EditorGUI.LabelField(rect, new GUIContent("Day Parts List", "Determines the order of day cycle parts."), EditorStyles.boldLabel); };
+        reorderableDayParts.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
+        {
+            if (index >= CalendarData.dayParts.Count) return;
+            rect.y += 2;
+            float btnWidth = 75f; float spacing = 5f; float totalBtnArea = (btnWidth * 2) + spacing; float textWidth = rect.width - totalBtnArea - spacing;
+
+            string controlName = "DayPart_" + index;
+            GUI.SetNextControlName(controlName);
+
+            Color originalColor = GUI.backgroundColor;
+            if (string.IsNullOrWhiteSpace(CalendarData.dayParts[index])) GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
+
+            EditorGUI.BeginChangeCheck();
+            string newVal = EditorGUI.TextField(new Rect(rect.x, rect.y, textWidth, EditorGUIUtility.singleLineHeight), new GUIContent("", "Part name."), CalendarData.dayParts[index]);
+            GUI.backgroundColor = originalColor;
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(dataWrapper, "Change Day Part Name");
+                CalendarData.dayParts[index] = newVal;
+                CheckIfDirty();
+            }
+
+            if (GUI.Button(new Rect(rect.x + textWidth + spacing, rect.y, btnWidth, EditorGUIUtility.singleLineHeight), "Duplicate"))
+            {
+                Undo.RecordObject(dataWrapper, "Duplicate Day Part");
+                CalendarData.dayParts.Insert(index + 1, CalendarData.dayParts[index] + " (Copy)");
+                CheckIfDirty();
+                ShowNotification("Day Part Duplicated", NotificationType.Success);
+            }
+            if (GUI.Button(new Rect(rect.x + textWidth + spacing + btnWidth + spacing, rect.y, btnWidth, EditorGUIUtility.singleLineHeight), "Delete"))
+            {
+                bool canDelete = CalendarData.dayParts[index] == "New Part" || string.IsNullOrWhiteSpace(CalendarData.dayParts[index]);
+                if (canDelete || EditorUtility.DisplayDialog("Confirm Delete", $"Delete '{CalendarData.dayParts[index]}'?", "Yes", "Cancel"))
+                {
+                    Undo.RecordObject(dataWrapper, "Remove Day Part");
+                    CalendarData.dayParts.RemoveAt(index);
+                    CheckIfDirty();
+                    ShowNotification("Day Part Deleted", NotificationType.Success);
+                    GUIUtility.ExitGUI();
+                }
+            }
+        };
+        reorderableDayParts.onReorderCallbackWithDetails = (ReorderableList list, int oldIndex, int newIndex) => { Undo.RecordObject(dataWrapper, "Reorder Day Parts"); CheckIfDirty(); };
+
+        reorderableWeekDays = new ReorderableList(CalendarData.weekDays, typeof(string), true, true, false, false);
+        reorderableWeekDays.drawHeaderCallback = (Rect rect) => { EditorGUI.LabelField(rect, new GUIContent("Week Days List", "Determines the order and names of week days."), EditorStyles.boldLabel); };
+        reorderableWeekDays.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
+        {
+            if (index >= CalendarData.weekDays.Count) return;
+            rect.y += 2;
+            float btnWidth = 75f; float spacing = 5f; float totalBtnArea = (btnWidth * 2) + spacing; float textWidth = rect.width - totalBtnArea - spacing;
+
+            string controlName = "WeekDay_" + index;
+            GUI.SetNextControlName(controlName);
+
+            Color originalColor = GUI.backgroundColor;
+            if (string.IsNullOrWhiteSpace(CalendarData.weekDays[index])) GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
+
+            EditorGUI.BeginChangeCheck();
+            string newVal = EditorGUI.TextField(new Rect(rect.x, rect.y, textWidth, EditorGUIUtility.singleLineHeight), new GUIContent("", "Day name."), CalendarData.weekDays[index]);
+            GUI.backgroundColor = originalColor;
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(dataWrapper, "Change Week Day Name");
+                CalendarData.weekDays[index] = newVal;
+                CheckIfDirty();
+            }
+
+            if (GUI.Button(new Rect(rect.x + textWidth + spacing, rect.y, btnWidth, EditorGUIUtility.singleLineHeight), "Duplicate"))
+            {
+                Undo.RecordObject(dataWrapper, "Duplicate Week Day");
+                CalendarData.weekDays.Insert(index + 1, CalendarData.weekDays[index] + " (Copy)");
+                CheckIfDirty();
+                ShowNotification("Week Day Duplicated", NotificationType.Success);
+            }
+            if (GUI.Button(new Rect(rect.x + textWidth + spacing + btnWidth + spacing, rect.y, btnWidth, EditorGUIUtility.singleLineHeight), "Delete"))
+            {
+                bool canDelete = CalendarData.weekDays[index] == "New Day" || string.IsNullOrWhiteSpace(CalendarData.weekDays[index]);
+                if (canDelete || EditorUtility.DisplayDialog("Confirm Delete", $"Delete '{CalendarData.weekDays[index]}'?", "Yes", "Cancel"))
+                {
+                    Undo.RecordObject(dataWrapper, "Remove Week Day");
+                    CalendarData.weekDays.RemoveAt(index);
+                    CheckIfDirty();
+                    ShowNotification("Week Day Deleted", NotificationType.Success);
+                    GUIUtility.ExitGUI();
+                }
+            }
+        };
+        reorderableWeekDays.onReorderCallbackWithDetails = (ReorderableList list, int oldIndex, int newIndex) => { Undo.RecordObject(dataWrapper, "Reorder Week Days"); CheckIfDirty(); };
+
+
+        reorderableMonths = new ReorderableList(CalendarData.months, typeof(MonthDefinition), true, true, false, false);
+        reorderableMonths.drawHeaderCallback = (Rect rect) =>
+        {
+            float btnWidth = 75f; float spacing = 5f; float daysWidth = 50f; float actionWidth = (btnWidth * 2) + spacing; float nameWidth = rect.width - daysWidth - actionWidth - (spacing * 2);
+            EditorGUI.LabelField(new Rect(rect.x, rect.y, nameWidth, rect.height), new GUIContent("Month Name"), EditorStyles.boldLabel);
+            EditorGUI.LabelField(new Rect(rect.x + nameWidth + spacing, rect.y, daysWidth, rect.height), new GUIContent("Days"), EditorStyles.boldLabel);
+            EditorGUI.LabelField(new Rect(rect.x + nameWidth + daysWidth + (spacing * 2), rect.y, actionWidth, rect.height), new GUIContent("Actions"), EditorStyles.boldLabel);
+        };
+        reorderableMonths.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
+        {
+            if (index >= CalendarData.months.Count) return;
+            var element = CalendarData.months[index];
+            rect.y += 2; float height = EditorGUIUtility.singleLineHeight;
+            float btnWidth = 75f; float spacing = 5f; float daysWidth = 50f; float actionWidth = (btnWidth * 2) + spacing; float nameWidth = rect.width - daysWidth - actionWidth - (spacing * 2);
+
+            string controlName = "MonthName_" + index;
+            GUI.SetNextControlName(controlName);
+
+            Color originalColor = GUI.backgroundColor;
+            if (string.IsNullOrWhiteSpace(element.monthName)) GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
+
+            EditorGUI.BeginChangeCheck();
+            string newName = EditorGUI.TextField(new Rect(rect.x, rect.y, nameWidth, height), new GUIContent("", "Month name."), element.monthName);
+            GUI.backgroundColor = originalColor;
+            if (EditorGUI.EndChangeCheck()) { Undo.RecordObject(dataWrapper, "Change Month Name"); element.monthName = newName; CheckIfDirty(); }
+
+            EditorGUI.BeginChangeCheck();
+            int newDays = EditorGUI.IntField(new Rect(rect.x + nameWidth + spacing, rect.y, daysWidth, height), new GUIContent("", "Number of days."), element.daysInMonth);
+            if (EditorGUI.EndChangeCheck()) { Undo.RecordObject(dataWrapper, "Change Month Days"); element.daysInMonth = Mathf.Max(1, newDays); CheckIfDirty(); }
+
+            if (GUI.Button(new Rect(rect.x + nameWidth + daysWidth + (spacing * 2), rect.y, btnWidth, height), "Duplicate"))
+            {
+                Undo.RecordObject(dataWrapper, "Duplicate Month");
+                CalendarData.months.Insert(index + 1, new MonthDefinition(element.monthName + " (Copy)", element.daysInMonth));
+                CheckIfDirty();
+                ShowNotification("Month Duplicated", NotificationType.Success);
+            }
+            if (GUI.Button(new Rect(rect.x + nameWidth + daysWidth + (spacing * 2) + btnWidth + spacing, rect.y, btnWidth, height), "Delete"))
+            {
+                bool canDelete = element.monthName == "New Month" || string.IsNullOrWhiteSpace(element.monthName);
+                if (canDelete || EditorUtility.DisplayDialog("Confirm Delete", $"Delete '{element.monthName}'?", "Yes", "Cancel"))
+                {
+                    Undo.RecordObject(dataWrapper, "Remove Month");
+                    CalendarData.months.RemoveAt(index);
+                    CheckIfDirty();
+                    ShowNotification("Month Deleted", NotificationType.Success);
+                    GUIUtility.ExitGUI();
+                }
+            }
+        };
+        reorderableMonths.onReorderCallbackWithDetails = (ReorderableList list, int oldIndex, int newIndex) => { Undo.RecordObject(dataWrapper, "Reorder Months"); CheckIfDirty(); };
+    }
+    #endregion
+
+    #region Data Management
+    private void CalculateDefaultJson()
+    {
+        CalendarData defaultData = new CalendarData();
+
+        defaultData.dayParts = new List<string> { "Morning", "Noon", "Afternoon", "Evening" };
+
+        defaultData.weekDays = new List<string> { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+
+        defaultData.months = new List<MonthDefinition>
+        {
+            new MonthDefinition("January", 31), new MonthDefinition("February", 28),
+            new MonthDefinition("March", 31), new MonthDefinition("April", 30),
+            new MonthDefinition("May", 31), new MonthDefinition("June", 30),
+            new MonthDefinition("July", 31), new MonthDefinition("August", 31),
+            new MonthDefinition("September", 30), new MonthDefinition("October", 31),
+            new MonthDefinition("November", 30), new MonthDefinition("December", 31)
+        };
+
+        defaultData.currentYear = 2025;
+        defaultData.currentMonthIndex = 0;
+        defaultData.currentDay = 1;
+        defaultData.currentDayPartIndex = 0;
+        defaultData.currentWeekDayIndex = 0;
+
+        defaultResetJson = JsonUtility.ToJson(defaultData, true);
     }
 
     private void ResetToDefault()
@@ -747,7 +683,7 @@ public class CalendarEditorWindow : EditorWindow
         {
             if (string.IsNullOrWhiteSpace(CalendarData.dayParts[i]))
             {
-                EditorUtility.DisplayDialog("Hata", $"Day Part index {i} boş olamaz.", "OK");
+                EditorUtility.DisplayDialog("Error", $"Day Part index {i} cannot be empty.", "OK");
                 return false;
             }
         }
@@ -755,7 +691,7 @@ public class CalendarEditorWindow : EditorWindow
         {
             if (string.IsNullOrWhiteSpace(CalendarData.weekDays[i]))
             {
-                EditorUtility.DisplayDialog("Hata", $"Week Day index {i} boş olamaz.", "OK");
+                EditorUtility.DisplayDialog("Error", $"Week Day index {i} cannot be empty.", "OK");
                 return false;
             }
         }
@@ -763,7 +699,7 @@ public class CalendarEditorWindow : EditorWindow
         {
             if (string.IsNullOrWhiteSpace(CalendarData.months[i].monthName))
             {
-                EditorUtility.DisplayDialog("Hata", $"Month Name index {i} boş olamaz.", "OK");
+                EditorUtility.DisplayDialog("Error", $"Month Name index {i} cannot be empty.", "OK");
                 return false;
             }
         }
@@ -824,4 +760,78 @@ public class CalendarEditorWindow : EditorWindow
             this.hasUnsavedChanges = false;
         }
     }
+
+    private void CheckIfDirty()
+    {
+        if (CalendarData == null) return;
+        string currentJson = JsonUtility.ToJson(CalendarData, true);
+        if (currentJson != lastSavedJson)
+        {
+            this.hasUnsavedChanges = true;
+        }
+        else
+        {
+            this.hasUnsavedChanges = false;
+        }
+    }
+    #endregion
+
+    #region Styles & Helpers
+    private void ShowNotification(string message, NotificationType type)
+    {
+        currentToastMessage = message;
+        toastStartTime = EditorApplication.timeSinceStartup;
+
+        if (type == NotificationType.Success)
+            currentToastColor = new Color(0.2f, 1.0f, 0.2f);
+        else
+            currentToastColor = new Color(1.0f, 0.4f, 0.4f);
+
+        Repaint();
+    }
+
+    private void InitStyles()
+    {
+        if (titleStyle == null)
+        {
+            titleStyle = new GUIStyle(EditorStyles.boldLabel);
+            titleStyle.fontSize = 13;
+            titleStyle.margin = new RectOffset(0, 0, 5, 5);
+            titleStyle.normal.textColor = EditorGUIUtility.isProSkin ? new Color(0.8f, 0.8f, 0.8f) : Color.black;
+        }
+
+        if (linkStyle == null)
+        {
+            linkStyle = new GUIStyle(EditorStyles.label);
+            linkStyle.normal.textColor = new Color(0.5f, 0.5f, 0.5f, 1f);
+            linkStyle.hover.textColor = new Color(0.7f, 0.7f, 0.7f, 1f);
+            linkStyle.active.textColor = Color.white;
+        }
+
+        if (statsStyle == null)
+        {
+            statsStyle = new GUIStyle(EditorStyles.helpBox);
+            statsStyle.fontSize = 11;
+            statsStyle.alignment = TextAnchor.MiddleCenter;
+            statsStyle.normal.textColor = EditorGUIUtility.isProSkin ? new Color(0.7f, 0.9f, 0.7f) : new Color(0.2f, 0.5f, 0.2f);
+        }
+
+        if (toastStyle == null)
+        {
+            toastStyle = new GUIStyle(EditorStyles.label);
+            toastStyle.fontSize = 16;
+            toastStyle.fontStyle = FontStyle.Bold;
+            toastStyle.alignment = TextAnchor.MiddleLeft;
+            toastStyle.normal.background = null;
+        }
+
+        if (setupButtonStyle == null)
+        {
+            setupButtonStyle = new GUIStyle(GUI.skin.button);
+            setupButtonStyle.fontSize = 14;
+            setupButtonStyle.padding = new RectOffset(10, 10, 10, 10);
+            setupButtonStyle.fontStyle = FontStyle.Bold;
+        }
+    }
+    #endregion
 }

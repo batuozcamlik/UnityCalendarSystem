@@ -7,17 +7,20 @@ using UnityEditor;
 
 public class CalendarManager : MonoBehaviour
 {
+    #region Data & Settings
     public CalendarData calendarData;
 
     private string saveFileName = "calendar_save.json";
     private string resourceFileName = "calendar_config";
+    #endregion
 
     private void Awake()
     {
         LoadCalendarData();
-        Debug.Log($"Sistem Baslatildi. Tarih: {GetFormattedDate()}");
+        Debug.Log($"System Initialized. Date: {GetFormattedDate()}");
     }
 
+    #region File Operations
     void LoadCalendarData()
     {
 #if UNITY_EDITOR
@@ -27,11 +30,11 @@ public class CalendarManager : MonoBehaviour
         {
             string json = File.ReadAllText(fullPath);
             calendarData = JsonUtility.FromJson<CalendarData>(json);
-            Debug.Log("EDITOR MODU: Veriler Ana Config dosyasindan yüklendi.");
+            Debug.Log("EDITOR MODE: Data loaded from Main Config file.");
         }
         else
         {
-            Debug.LogError("Config dosyasi bulunamadi! Lutfen Calendar Window ile olusturun.");
+            Debug.LogError("Config file not found! Please create it using Calendar Window.");
             calendarData = new CalendarData();
         }
 
@@ -42,7 +45,7 @@ public class CalendarManager : MonoBehaviour
         {
             string json = File.ReadAllText(savePath);
             calendarData = JsonUtility.FromJson<CalendarData>(json);
-            Debug.Log("OYUN MODU: Oyuncu kayit dosyasindan yüklendi.");
+            Debug.Log("GAME MODE: Loaded from player save file.");
         }
         else
         {
@@ -51,7 +54,7 @@ public class CalendarManager : MonoBehaviour
             if (configFile != null)
             {
                 calendarData = JsonUtility.FromJson<CalendarData>(configFile.text);
-                Debug.Log("OYUN MODU: Kayit yok. Varsayilan Config yüklendi.");
+                Debug.Log("GAME MODE: No save found. Default Config loaded.");
             }
             else
             {
@@ -78,7 +81,9 @@ public class CalendarManager : MonoBehaviour
         File.WriteAllText(savePath, json);
 #endif
     }
+    #endregion
 
+    #region Time Management
     public void SkipTimePart(int amount)
     {
         if (calendarData == null) return;
@@ -110,21 +115,18 @@ public class CalendarManager : MonoBehaviour
     {
         if (calendarData.months.Count == 0) return;
 
-      
         calendarData.currentDay++;
 
-      
         if (calendarData.weekDays.Count > 0)
         {
             calendarData.currentWeekDayIndex++;
-         
+
             if (calendarData.currentWeekDayIndex >= calendarData.weekDays.Count)
             {
                 calendarData.currentWeekDayIndex = 0;
             }
         }
 
-   
         int daysInCurrentMonth = calendarData.months[calendarData.currentMonthIndex].daysInMonth;
         if (calendarData.currentDay > daysInCurrentMonth)
         {
@@ -147,25 +149,22 @@ public class CalendarManager : MonoBehaviour
     {
         if (calendarData.months.Count == 0) return;
 
-    
         calendarData.currentDay--;
 
-       
         if (calendarData.weekDays.Count > 0)
         {
             calendarData.currentWeekDayIndex--;
-      
+
             if (calendarData.currentWeekDayIndex < 0)
             {
                 calendarData.currentWeekDayIndex = calendarData.weekDays.Count - 1;
             }
         }
 
-       
         if (calendarData.currentDay < 1)
         {
             RegressMonth();
-     
+
             int daysInPrevMonth = calendarData.months[calendarData.currentMonthIndex].daysInMonth;
             calendarData.currentDay = daysInPrevMonth;
         }
@@ -181,15 +180,16 @@ public class CalendarManager : MonoBehaviour
             if (calendarData.currentYear < 1) calendarData.currentYear = 1;
         }
     }
+    #endregion
 
+    #region Helpers
     public string GetFormattedDate()
     {
-        if (calendarData == null || calendarData.dayParts.Count == 0 || calendarData.months.Count == 0) return "Veri Yok";
+        if (calendarData == null || calendarData.dayParts.Count == 0 || calendarData.months.Count == 0) return "No Data";
 
         int mIndex = Mathf.Clamp(calendarData.currentMonthIndex, 0, calendarData.months.Count - 1);
         int pIndex = Mathf.Clamp(calendarData.currentDayPartIndex, 0, calendarData.dayParts.Count - 1);
 
-     
         string weekDayName = "";
         if (calendarData.weekDays.Count > 0)
         {
@@ -197,7 +197,7 @@ public class CalendarManager : MonoBehaviour
             weekDayName = calendarData.weekDays[wIndex];
         }
 
-       
         return $"{calendarData.currentDay} {calendarData.months[mIndex].monthName} {calendarData.currentYear} {weekDayName} - {calendarData.dayParts[pIndex]}";
     }
+    #endregion
 }
