@@ -2,7 +2,7 @@
 
 A fully customizable, JSON-based, and Editor-supported Calendar and Day Cycle system for Unity.
 
-This system allows you to create your own months, week days, and day cycles (e.g., Morning, Noon, Evening) without writing a single line of code, thanks to its powerful **Custom Editor Window**. It handles time progression, save/load operations, and complex calendar logic (leap years, month rollovers) automatically.
+This system allows you to create your own months, week days, and day cycles (e.g., Morning, Noon, Evening) without writing a single line of code, thanks to its powerful **Custom Editor Window**. It handles time progression, save/load operations, and complex calendar logic (month rollovers, year advancement) automatically.
 
 ## ✨ Features
 
